@@ -21,9 +21,19 @@ description:         Please see the README on GitHub at <https://github.com/zara
 
 dependencies:
 - base >= 4.7 && < 5
+- containers
+- non-empty
+- text
+- cassava
+- conduit
+- cassava-conduit
+- resourcet
+- mtl
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wall
 
 executables:
   teryt-exe:
