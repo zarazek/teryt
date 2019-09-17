@@ -19,29 +19,54 @@ import qualified Data.IntMap.Strict            as IM
 
 import           Data.Teryt.Hierarchy
 import           Data.Teryt.NTS
+import           Data.Teryt.TERC
 
 import           System.Environment            (getArgs)
 import           System.Exit                   (exitFailure)
 
 main :: IO ()
 main = do
-  [path] <- getArgs
-  parseResult <- runResourceT $ runExceptT $ C.runConduit $ pipeline path
+  [ntsPath, tercPath] <- getArgs
+  processNTS ntsPath
+  processTERC tercPath
+
+processNTS :: FilePath -> IO ()
+processNTS path = do
+  parseResult <- runResourceT $ runExceptT $ C.runConduit pipeline
   sortedByLevel <- expectRight parseResult
   let rootData = NtsData { name     = "ROOT"
                          , type_    = NtRoot
                          , validOn  = "00-00-0000"
                          }
   hierarchy <- expectRight $ mkAmbiguousHierarchy rootData sortedByLevel
-  printAmbiguousHierarchy printNtsData hierarchy
+  printAmbiguousHierarchy ntsDataToText hierarchy
   where
-    pipeline path =  CC.sourceFile path
-                  .| parse
-                  .| CC.foldl addToLevelBucket IM.empty
+    pipeline =  CC.sourceFile path
+             .| parse
+             .| CC.foldl addToLevelBucket IM.empty
     parse = CSVC.fromCsv @(AmbiguousHierarchy NtsData) semicolonDelimiter CSV.HasHeader
     semicolonDelimiter = CSV.DecodeOptions { CSV.decDelimiter = toEnum $ ord ';' }
-    printNtsData NtsData{ name, type_ } =
+    ntsDataToText NtsData{ name, type_ } =
       name <> " (" <> ntsTypeToText type_ <> ")"
+
+processTERC :: FilePath -> IO ()
+processTERC path = do
+  parseResult <- runResourceT $ runExceptT $ C.runConduit pipeline
+  sortedByLevel <- expectRight parseResult
+  let rootData = TercData { name     = "ROOT"
+                          , typeId   = Nothing
+                          , typeName = "root"
+                          , validOn  = "00-00-0000"
+                          }
+  hierarchy <- expectRight $ mkAmbiguousHierarchy rootData sortedByLevel
+  printAmbiguousHierarchy tercDataToText hierarchy
+  where
+    pipeline =  CC.sourceFile path
+             .| parse
+             .| CC.foldl addToLevelBucket IM.empty
+    parse = CSVC.fromCsv @(AmbiguousHierarchy TercData) semicolonDelimiter CSV.HasHeader
+    semicolonDelimiter = CSV.DecodeOptions { CSV.decDelimiter = toEnum $ ord ';' }
+    tercDataToText TercData{ name, typeName } = name <> " (" <> typeName <> ")"
 
 expectRight :: Show e => Either e a -> IO a
 expectRight = \case
