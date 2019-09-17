@@ -9,7 +9,7 @@ module Data.Teryt.Hierarchy
   , addToLevelBucket
   , PathError(..)
   , mkHierarchy, mkAmbiguousHierarchy
-  , printHierarchy, printAmbiguousHierarchy
+  , traverseHierarchy, traverseAmbiguousHierarchy
   ) where
 
 import           Control.Monad         (guard, mzero, foldM)
@@ -19,9 +19,6 @@ import           Data.Foldable         (for_)
 import qualified Data.IntMap.Strict    as IM
 import           Data.IntMap.Strict    (IntMap)
 import qualified Data.NonEmpty         as NE
-import qualified Data.Text             as T
-import           Data.Text             (Text)
-import qualified Data.Text.IO          as TI
 
 data Hierarchy a
   = Hierarchy
@@ -190,26 +187,21 @@ pushFront x xs = x `NE.cons` NE.flatten xs
 pushBack :: a -> NonEmptyList a -> NonEmptyList a
 pushBack x xs = NE.flatten xs `NE.snoc` x
 
-printHierarchy :: (a -> Text) -> Hierarchy a -> IO ()
-printHierarchy payloadToTxt = go 0
+traverseHierarchy :: Applicative f
+                  => Hierarchy a
+                  -> (Int -> [Int] -> a -> f b)
+                  -> f ()
+traverseHierarchy h f = go 0 h
   where
-    go level Hierarchy{ payload , children } = do
-      TI.putStrLn dsc
-      for_ children $ go (level + 1)
-      where
-        dsc =  T.concat [ T.replicate (2*level) " "
-                        , "- "
-                        , payloadToTxt payload
-                        ]
+    go level Hierarchy{ path, payload , children } =
+      f level path payload *> for_ children (go (level + 1))
 
-printAmbiguousHierarchy :: (a -> Text) -> AmbiguousHierarchy a -> IO ()
-printAmbiguousHierarchy payloadToTxt = go 0
+traverseAmbiguousHierarchy :: Applicative f
+                           => AmbiguousHierarchy a
+                           -> (Int -> [Int] -> a -> f b)
+                           -> f ()
+traverseAmbiguousHierarchy ah f = go 0 ah
   where
-    go level AmbiguousHierarchy{ payload , children } = do
-      TI.putStrLn dsc
-      for_ (concatMap NE.flatten $ IM.elems children) $ go (level + 1)
-      where
-        dsc =  T.concat [ T.replicate (2*level) " "
-                        , "- "
-                        , payloadToTxt payload
-                        ]
+    go level AmbiguousHierarchy{ path, payload , children } =
+      f level path payload *>
+      for_ children (\group -> for_ group (go (level + 1)))

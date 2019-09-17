@@ -9,13 +9,15 @@ module Main where
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.Monad.Except         (runExceptT)
 
+import           Data.Char                     (ord)
 import qualified Data.Conduit                  as C
 import           Data.Conduit                  ((.|))
 import qualified Data.Conduit.Combinators      as CC
 import qualified Data.Csv                      as CSV
 import qualified Data.Csv.Conduit              as CSVC
-import           Data.Char                     (ord)
 import qualified Data.IntMap.Strict            as IM
+import qualified Data.Text                     as T
+import qualified Data.Text.IO                  as TIO
 
 import           Data.Teryt.Hierarchy
 import           Data.Teryt.NTS
@@ -39,7 +41,8 @@ processNTS path = do
                          , validOn  = "00-00-0000"
                          }
   hierarchy <- expectRight $ mkAmbiguousHierarchy rootData sortedByLevel
-  printAmbiguousHierarchy ntsDataToText hierarchy
+  traverseAmbiguousHierarchy hierarchy $ \level _ ntsData ->
+    TIO.putStrLn $ T.replicate (2*level) " " <> "- " <> ntsDataToText ntsData
   where
     pipeline =  CC.sourceFile path
              .| parse
@@ -59,7 +62,8 @@ processTERC path = do
                           , validOn  = "00-00-0000"
                           }
   hierarchy <- expectRight $ mkAmbiguousHierarchy rootData sortedByLevel
-  printAmbiguousHierarchy tercDataToText hierarchy
+  traverseAmbiguousHierarchy hierarchy $ \level _ tercData ->
+    TIO.putStrLn $ T.replicate (2*level) " " <> "- " <> tercDataToText tercData
   where
     pipeline =  CC.sourceFile path
              .| parse
